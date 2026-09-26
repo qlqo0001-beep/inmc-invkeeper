@@ -1,0 +1,81 @@
+name: inmc-invkeeper
+version: '${version}'
+main: com.inmc.invkeeper.InvKeeperPlugin
+api-version: '${apiVersion}'   # build.gradle.kts 의 inmc { paper } 에서 유도됨
+description: 사망 시 인벤토리·경험치를 월드·권한·보호 아이템 기준으로 관리하고, 무덤과 영혼각인을 제공합니다
+authors: [ INMC ]
+
+# 연동은 전부 load: OMIT 이다. 훅이 전부 리플렉션이라 로드 순서가 의미가 없고,
+# BEFORE 를 걸면 Paper 가 의존성 순환을 보고 우리 간선을 조용히 끊는다 (가이드 함정 1).
+dependencies:
+  server:
+    # 필수 의존은 이것 하나뿐. core 가 kotlin-stdlib 과 공용 프레임워크를 들고 있어서
+    # join-classpath 없이는 클래스가 보이지 않는다.
+    inmc-core:      { load: BEFORE, required: true,  join-classpath: true }
+    MMOItems:       { load: OMIT,   required: false, join-classpath: true }
+    MythicLib:      { load: OMIT,   required: false, join-classpath: true }
+    ItemsAdder:     { load: OMIT,   required: false, join-classpath: true }
+
+# commands 섹션 없음 - Brigadier 로 등록한다.
+#
+# 1세대 plugin.yml 의 권한 16개를 **기본값까지 그대로** 옮긴다.
+#
+# 선언하지 않은 노드는 Bukkit 이 `default: op` 로 다룬다. 그래서 등급 노드(drop.N ·
+# grave.time.*)를 빼먹으면 **OP 에게 모든 등급이 자동으로 붙는다** — drop.11(드랍 0%)과
+# grave.time.vvip(무덤 무제한)이 걸려 OP 는 죽어도 아무것도 안 떨어지고 무덤이 영원해진다.
+# 1세대는 전부 `default: false` 였다.
+permissions:
+  invkeeper.status:
+    description: 자신의 보호 상태를 확인
+    default: true
+  invkeeper.admin:
+    description: InvKeeper 관리 권한 전체 (리로드·지급·등록·각인 해제·무덤)
+    default: op
+  invkeeper.grave.admin:
+    description: 무덤 관리만 (목록·기록). 운영진에게 무덤만 맡길 때
+    default: op
+  invkeeper.grave.bypass:
+    description: 도굴 아이템 없이 남의 무덤을 연다
+    default: op
+  invkeeper.soulbind.bypass:
+    description: 남의 각인 아이템을 줍고 옮긴다
+    default: false
+  invkeeper.grave.time.vip:
+    description: 무덤 유지 시간 VIP 등급
+    default: false
+  invkeeper.grave.time.vvip:
+    description: 무덤 유지 시간 VVIP 등급 (무제한)
+    default: false
+  invkeeper.drop.1:
+    description: 드랍 규칙 등급 1
+    default: false
+  invkeeper.drop.2:
+    description: 드랍 규칙 등급 2
+    default: false
+  invkeeper.drop.3:
+    description: 드랍 규칙 등급 3
+    default: false
+  invkeeper.drop.4:
+    description: 드랍 규칙 등급 4
+    default: false
+  invkeeper.drop.5:
+    description: 드랍 규칙 등급 5
+    default: false
+  invkeeper.drop.6:
+    description: 드랍 규칙 등급 6
+    default: false
+  invkeeper.drop.7:
+    description: 드랍 규칙 등급 7
+    default: false
+  invkeeper.drop.8:
+    description: 드랍 규칙 등급 8
+    default: false
+  invkeeper.drop.9:
+    description: 드랍 규칙 등급 9
+    default: false
+  invkeeper.drop.10:
+    description: 드랍 규칙 등급 10
+    default: false
+  invkeeper.drop.11:
+    description: 드랍 규칙 등급 11
+    default: false

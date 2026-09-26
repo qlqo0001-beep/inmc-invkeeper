@@ -1,0 +1,71 @@
+# ============================================================
+#  inmc-invkeeper — 메시지
+# ============================================================
+# MiniMessage 표기를 씁니다: <red>빨강</red>, <gradient:#a:#b>…</gradient>
+# 예전 색코드(&c, §c)도 그대로 읽히니 급하면 섞어 써도 됩니다.
+#
+# 줄을 통째로 지우면 내장 기본값이 나갑니다. 빈 문자열("")로 두면 그 메시지를 끕니다.
+#
+# 토큰은 한글/영문 둘 다 됩니다 — {플레이어} = {player}, {주인} = {owner},
+# {아이템} = {item_name}, {남은시간} = {remaining} …
+
+# 모든 메시지 앞에 붙는 접두사. 1세대에는 없었으므로 기본은 비어 있습니다.
+prefix: ""
+
+# --- 사망 / 보호 ---------------------------------------------------------------
+death: "<red>인벤토리 {inv_percent}% ({items_dropped}개), 경험치 {exp_percent}% ({exp_dropped}exp)를 잃었습니다.</red>"
+protected: "<green>인벤토리 보호권을 소모하여 아무것도 잃지 않았습니다!</green>"
+timed-protected: "<green>인벤토리 보호 상태 임으로 아무것도 잃지 않았습니다! (남은 시간: {remaining})</green>"
+timed-already-active: "<yellow>이미 보호 상태입니다. (남은 시간: {remaining})</yellow>"
+timed-activated: "<green>인벤토리 보호가 {duration}분간 활성화되었습니다.</green>"
+timed-remaining-five-minutes: "<yellow>보호 상태가 5분 남았습니다. 남은 시간: {remaining}</yellow>"
+timed-remaining-one-minute: "<yellow>보호 상태가 1분 남았습니다. 남은 시간: {remaining}</yellow>"
+
+# --- 영혼각인 -------------------------------------------------------------------
+soulbound-applied: "<green>아이템에 영혼각인이 적용되었습니다. (대상: {owner}, 지속시간: {remaining})</green>"
+soulbound-extended: "<green>이미 각인된 아이템의 유지시간이 연장되었습니다. (남은 시간: {remaining})</green>"
+soulbound-unbound: "<green>아이템의 영혼각인이 해제되었습니다.</green>"
+soulbound-cant-pickup: "<red>{item_name}은(는) {owner}의 각인 아이템입니다. 획득할 수 없습니다.</red>"
+soulbound-cant-use: "<red>{item_name}은(는) {owner}의 각인 아이템입니다. 사용할 수 없습니다.</red>"
+soulbound-forced-dropped: "<yellow>이 플레이어가 소유자가 아니라서 아이템을 강제로 드랍했습니다.</yellow>"
+soulbound-already-infinite: "<yellow>이 아이템은 이미 무한 각인 상태입니다.</yellow>"
+soulbound-lore-format: "<gray>각인: <aqua>{owner}</aqua> | 만료: <aqua>{expiry}</aqua></gray>"
+soulbound-lore-format-stack: "<gray>각인: <aqua>{owner}</aqua> | 횟수: <aqua>{stacks}</aqua></gray>"
+soulbound-conflict-type: "<red>이 아이템은 {type} 각인 상태입니다. 다른 타입의 각인을 적용할 수 없습니다.</red>"
+soulbound-max-stack: "<red>최대 각인 스택({max})을 초과하여 적용할 수 없습니다.</red>"
+
+# --- 무덤 -----------------------------------------------------------------------
+grave-created: "<yellow>무덤이 생성되었습니다. ({world}, {x}, {y}, {z})</yellow>"
+grave-not-owner: "<red>이 무덤의 주인은 {owner} 입니다.</red>"
+grave-opened: "<green>무덤을 열었습니다.</green>"
+grave-max-reached: "<red>무덤 최대 개수({max})에 도달하여 가장 오래된 무덤이 정리되었습니다.</red>"
+grave-expired: "<gray>({world}, {x}, {y}, {z}) 의 무덤이 시간이 지나 사라졌습니다.</gray>"
+grave-fully-recovered: "<yellow>무덤의 모든 아이템을 회수하여 무덤이 사라졌습니다.</yellow>"
+grave-loot-start-caster: "<green>도굴을 시작합니다. {seconds}초 후 무덤이 열립니다.</green>"
+grave-loot-start-owner-alert: "<red>누군가 당신의 무덤을 도굴중입니다!</red>"
+grave-loot-cancelled: "<red>도굴중, {owner}이(가) 무덤을 확인하여 도굴이 취소되었습니다.</red>"
+grave-loot-blocked-owner: "<green>무덤 도굴을 막았습니다!</green>"
+grave-loot-already-in-progress: "<red>이미 다른 플레이어가 이 무덤을 도굴하고 있습니다.</red>"
+grave-loot-self-blocked: "<red>자신의 무덤은 도굴할 수 없습니다.</red>"
+grave-loot-complete-caster: "<green>도굴이 완료되었습니다! 이제 무덤을 열 수 있습니다.</green>"
+grave-loot-item-required: "<red>도굴 아이템이 필요합니다.</red>"
+grave-history-emptied: "<green>히스토리에 남아있던 아이템을 모두 회수했습니다. (히스토리는 유지됩니다)</green>"
+grave-history-no-items: "<red>이 무덤에는 남아있는 아이템이 없습니다.</red>"
+
+# --- 명령어 ---------------------------------------------------------------------
+no-permission: "<red>권한이 없습니다.</red>"
+player-only: "<red>이 명령어는 플레이어만 사용할 수 있습니다.</red>"
+not-ready: "<gray>플러그인이 아직 준비 중입니다. 잠시 후 다시 시도해주세요.</gray>"
+usage: "<gray>/인벤키퍼 <white>[관리|상태|리로드|지급|각인|무덤]</white></gray>"
+reloaded: "<green>설정을 다시 불러왔습니다.</green>"
+unknown-item: "<red>'{item}' 이라는 아이템 설정이 없습니다.</red>"
+player-not-found: "<red>'{player}' 을(를) 찾을 수 없습니다.</red>"
+given: "<green>{player} 에게 {item} {amount}개를 지급했습니다.</green>"
+hand-empty: "<red>손에 아이템을 들고 있어야 합니다.</red>"
+
+# --- 아이템 등록 -----------------------------------------------------------------
+registered: "<green>손에 든 아이템을 '{item}' 으로 등록했습니다.</green>"
+unregistered: "<green>'{item}' 등록을 해제했습니다.</green>"
+
+# --- 자동각인 ---------------------------------------------------------------------
+autobind-applied: "<green>{item_name}이(가) 당신에게 자동으로 각인되었습니다. ({remaining})</green>"

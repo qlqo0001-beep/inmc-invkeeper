@@ -1,0 +1,138 @@
+# ============================================================
+#  inmc-invkeeper — 아이템 등록
+# ============================================================
+# 여기 직접 적어도 되지만, **손에 든 아이템을 그대로 등록하는 쪽이 쉽습니다.**
+#
+#   /인벤키퍼 등록 <종류> <이름>      손에 든 것을 그 이름으로 등록
+#   /인벤키퍼 등록해제 <이름>
+#   /인벤키퍼 목록
+#   /인벤키퍼 지급 <대상> <개수> <이름>
+#
+# 그렇게 등록하면 MMOItems·ItemsAdder·바닐라·직접 만든 아이템이 전부 같은 길로 들어옵니다.
+#
+# ── 종류(kind) ────────────────────────────────────────────
+#   PLAIN                  역할 없음. 자동각인만 걸고 싶을 때
+#   CONSUMABLE_PROTECTION  소모형 보호권 (사망 시 자동 소모, 완전 보호)
+#   TIMED_PROTECTION       시간형 보호권 (우클릭, protection-minutes 동안 보호)
+#   SOULBIND_TOOL_TIME     시간형 각인기 (대상에 드래그-드랍)
+#   SOULBIND_TOOL_STACK    스택형 각인기
+#   SOULBIND_UNBIND_TOOL   각인 해제기
+#   GRAVE_LOOT_TOOL        도굴 도구 (cast-seconds 만큼 시전)
+#
+# ── 아이템 식별 (item / mode) ──────────────────────────────
+#   item: minecraft:paper           바닐라 재질
+#   item: mmoitems:CONSUMABLE:보호권  MMOItems
+#   item: itemsadder:ruby           ItemsAdder 등 네임스페이스 아이템
+#   item: snapshot                  참조를 못 만드는 수제 아이템 (아래 snapshot 사용)
+#
+#   mode: REFERENCE   매번 원본 정의에서 다시 만듭니다. 정의를 고치면 바로 반영됩니다. (기본)
+#   mode: SNAPSHOT    등록 당시 모습을 그대로 고정합니다.
+#   ⚠ 두 방식 모두 자동각인이 똑같이 동작합니다.
+#
+# ── 각인 설정 ──────────────────────────────────────────────
+#   self-bind:   이 아이템 **자체**에 걸리는 각인 (지급받는 순간 주인에게 묶임)
+#   auto-bind:   이 아이템을 **처음 획득한 사람**에게 자동으로 찍히는 각인
+#   applies:     각인 도구가 **대상 아이템에** 찍는 각인 (각인기에만 의미 있음)
+#
+#   셋 다 모양이 같습니다:
+#     enabled: true            (self-bind / auto-bind 에만)
+#     mode: TIME | STACK       TIME = 시간으로 만료, STACK = 사망 횟수로 소모
+#     duration-minutes: 0      TIME 전용. 0 이하면 영구
+#     stacks: 1                STACK 전용. -1 이면 무한
+#
+# ============================================================
+
+items:
+
+  # --- 보호권 ---------------------------------------------------------------
+  소모형보호권:
+    kind: CONSUMABLE_PROTECTION
+    item: minecraft:paper
+    material: minecraft:paper
+    name: "인벤토리 보호권 (소모형)"
+    self-bind:
+      enabled: true
+      mode: TIME
+      duration-minutes: 0      # 영구 - 받은 사람 것이 됩니다
+
+  시간형보호권:
+    kind: TIMED_PROTECTION
+    item: minecraft:paper
+    material: minecraft:paper
+    name: "인벤토리 보호권 (시간형)"
+    protection-minutes: 30
+    self-bind:
+      enabled: true
+      mode: TIME
+      duration-minutes: 0
+
+  # --- 각인 도구 -------------------------------------------------------------
+  시간형각인기:
+    kind: SOULBIND_TOOL_TIME
+    item: minecraft:amethyst_shard
+    material: minecraft:amethyst_shard
+    name: "시간형 각인기"
+    applies:
+      mode: TIME
+      duration-minutes: 60     # 대상에게 60분 각인을 찍습니다
+    self-bind:
+      enabled: true
+      mode: TIME
+      duration-minutes: 0
+
+  스택형각인기:
+    kind: SOULBIND_TOOL_STACK
+    item: minecraft:heart_of_the_sea
+    material: minecraft:heart_of_the_sea
+    name: "스택형 각인기"
+    applies:
+      mode: STACK
+      stacks: 1                # 대상이 사망 1회를 버팁니다
+    self-bind:
+      enabled: true
+      mode: TIME
+      duration-minutes: 0
+
+  각인해제기:
+    kind: SOULBIND_UNBIND_TOOL
+    item: minecraft:shears
+    material: minecraft:shears
+    name: "각인 해제 도구"
+    self-bind:
+      enabled: true
+      mode: TIME
+      duration-minutes: 0
+
+  # --- 도굴 ------------------------------------------------------------------
+  도굴도구:
+    kind: GRAVE_LOOT_TOOL
+    item: minecraft:tripwire_hook
+    material: minecraft:tripwire_hook
+    name: "도굴 도구"
+    cast-seconds: 300
+
+  # --- 자동각인 예시 ----------------------------------------------------------
+  # 등록만 해두면, 이 아이템을 **처음 손에 넣은 사람**에게 각인이 자동으로 찍힙니다.
+  # 이후 다른 사람은 줍지도, 쓰지도, 옮기지도 못합니다.
+  #
+  # 아래는 껍데기입니다. 쓰시려면 실제 아이템을 손에 들고
+  #   /인벤키퍼 등록 PLAIN 보스무기
+  # 로 등록한 뒤, 이 파일에서 그 항목의 auto-bind 를 켜세요.
+  #
+  # 보스무기:
+  #   kind: PLAIN
+  #   item: mmoitems:SWORD:엑스칼리버
+  #   material: minecraft:netherite_sword
+  #   auto-bind:
+  #     enabled: true
+  #     mode: TIME
+  #     duration-minutes: 0    # 처음 획득한 사람에게 영구 각인
+  #
+  # 시즌한정망토:
+  #   kind: PLAIN
+  #   item: itemsadder:season_cape
+  #   material: minecraft:elytra
+  #   auto-bind:
+  #     enabled: true
+  #     mode: STACK
+  #     stacks: 3              # 처음 획득한 사람이 사망 3회까지 지킵니다
