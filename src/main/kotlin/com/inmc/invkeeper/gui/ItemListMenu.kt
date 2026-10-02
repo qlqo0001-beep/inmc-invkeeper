@@ -61,7 +61,39 @@ class ItemListMenu(
             refresh()
         }
         set(SLOT_INFO, infoButton(shown.size))
+        set(SLOT_GRAVE_BLOCK, graveBlockButton()) { event ->
+            if (event.isRightClick) {
+                inv.graves.setBlock(null)
+                refresh()
+                return@set
+            }
+            val hand = viewer.inventory.itemInMainHand
+            val ref = if (hand.type.isAir) null else kr.inmc.core.item.BlockRef.fromItem(hand, inv.customItems)
+            if (ref == null) {
+                viewer.sendMessage(Text.render("<red>놓을 수 있는 블록을 손에 든 뒤 누르세요.</red>"))
+                return@set
+            }
+            inv.graves.setBlock(ref)
+            refresh()
+        }
         set(Paging.SLOT_CLOSE, Icon.close()) { viewer.closeInventory() }
+    }
+
+    /** 무덤 블록 — 지금 것의 모양으로. 커스텀 블록(커스텀아이템)도 된다. */
+    private fun graveBlockButton(): ItemStack {
+        val ref = inv.graves.graveBlockRef()
+        val icon = when (ref) {
+            is kr.inmc.core.item.BlockRef.Vanilla -> ItemStack(ref.material)
+            is kr.inmc.core.item.BlockRef.Custom -> inv.customItems.create(kr.inmc.core.item.ItemRef.Namespaced(ref.namespace, ref.id)) ?: ItemStack(ref.fallback)
+        }
+        return Icon.annotate(icon, "<yellow>무덤 블록</yellow>", listOf(
+            "<gray>지금: <white>${ref.serialize()}</white></gray>",
+            "<dark_gray>죽으면 이 블록이 무덤이 됩니다. 커스텀 블록(커스텀아이템)도 됩니다.</dark_gray>",
+            "<dark_gray>이미 있는 무덤은 놓인 블록 그대로 — 사라질 때 그 블록을 치웁니다.</dark_gray>",
+            "",
+            "<yellow>▶ 좌클릭: 손에 든 블록으로</yellow>",
+            "<red>▶ 우클릭: 기본값(통)으로</red>",
+        ))
     }
 
     private fun filterButton(shown: Int): ItemStack = Icon.of(
@@ -183,5 +215,6 @@ class ItemListMenu(
         const val SIZE = 54
         const val SLOT_FILTER = 48
         const val SLOT_INFO = 49
+        const val SLOT_GRAVE_BLOCK = 50
     }
 }

@@ -151,6 +151,12 @@ class Grave(
     /** 블록 좌표 하나를 가리키는 문자열 키. 상호작용에서 무덤을 찾는 데 쓴다. */
     fun blockKey(): String = blockKey(worldName, x, y, z)
 
+    /** 놓은 무덤 블록(`BlockRef` 문자열) — 설정을 바꿔도 사라질 때 이 무덤이 놓은 것을 치운다. 옛 기록은 빈 칸(그때 설정). */
+    var block: String = ""
+
+    /** 놓은 직후 그 칸의 재질(커스텀 블록이면 받침 블록) — 사라질 때 이것일 때만 되돌린다(그 사이 누가 바꿨으면 손대지 않게). */
+    var placed: Material? = null
+
     fun save(section: ConfigurationSection) {
         section.set("owner", ownerId.toString())
         section.set("owner-name", ownerName)
@@ -161,6 +167,8 @@ class Grave(
         section.set("created-at", createdAt)
         section.set("expire-at", expireAt)
         section.set("replaced", replacedMaterial.key().toString())
+        if (block.isNotBlank()) section.set("block", block)
+        placed?.let { section.set("placed", it.key().toString()) }
         section.set("state", state.name)
         looterId?.let { section.set("looter", it.toString()) }
         looterName?.let { section.set("looter-name", it) }
@@ -201,6 +209,8 @@ class Grave(
                 original = GraveContents.load(section.getConfigurationSection("original")),
             )
             grave.state = GraveState.parse(section.getString("state"))
+            grave.block = section.getString("block").orEmpty()
+            grave.placed = section.getString("placed")?.let { Material.matchMaterial(it) }
             grave.looterId = section.getString("looter")?.let { runCatching { UUID.fromString(it) }.getOrNull() }
             grave.looterName = section.getString("looter-name")
             grave.recoveredAt = section.getLong("recovered-at", 0L)
