@@ -106,10 +106,14 @@ class GraveManager(private val inv: InvKeeper) {
 
     private fun placeBlock(grave: Grave) {
         val block = grave.location()?.block ?: return
-        inv.blockPlacer.place(block, graveBlockRef())
+        val ref = graveBlockRef()
+        inv.blockPlacer.place(block, ref)
+        grave.block = ref.serialize()
+        grave.placed = block.type
     }
 
-    private fun graveBlockRef(): BlockRef {
+    /** 지금 설정의 무덤 블록. */
+    fun graveBlockRef(): BlockRef {
         val settings = inv.config.grave
         return when (settings.containerType) {
             GraveContainerType.VANILLA -> BlockRef.Vanilla(settings.vanillaMaterial)
@@ -138,15 +142,39 @@ class GraveManager(private val inv: InvKeeper) {
 
     private fun restoreBlock(grave: Grave) {
         val block = grave.location()?.block ?: return
-        inv.blockPlacer.clear(block, graveBlockRef())
+        // 이 무덤이 놓은 블록으로 치운다 — 그 뒤에 설정을 바꿨어도(옛 기록은 지금 설정).
+        val ref = grave.block.takeIf { it.isNotBlank() }?.let { BlockRef.parse(it) } ?: graveBlockRef()
+        inv.blockPlacer.clear(block, ref)
         // 놓기 전에 있던 블록으로 되돌린다. 그 사이 누가 바꿔놨어도 우리 무덤 블록일 때만
         // 손댄다 - 아니면 남의 건축물을 덮어쓴다.
-        if (!isGraveBlock(block.type)) return
+        val expected = grave.placed ?: (ref as? BlockRef.Vanilla)?.material ?: inv.config.grave.vanillaMaterial
+        if (block.type != expected) return
         block.setBlockData(grave.replacedMaterial.createBlockData(), false)
     }
 
-    private fun isGraveBlock(material: Material): Boolean =
-        material == inv.config.grave.vanillaMaterial
+    /**
+     * 무덤 블록을 바꾼다(관리 화면 — urb 의 상자 블록처럼 손에 든 블록으로, 테섭 요청 2026-10-02). `config.yml` 의 `grave.container` 에
+     * 적고(주석은 남는다) 그 자리에서 반영한다. null = 기본값(통). 이미 있는 무덤은 놓인 블록 그대로다.
+     */
+    fun setBlock(ref: BlockRef?) {
+        val file = inv.io.file("config.yml")
+        val yaml = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(file)
+        when (ref) {
+            is BlockRef.Custom -> {
+                yaml.set("grave.container.type", "CUSTOM_BLOCK")
+                yaml.set("grave.container.custom-block-provider", ref.namespace)
+                yaml.set("grave.container.custom-block-id", ref.id)
+            }
+            else -> {
+                yaml.set("grave.container.type", "VANILLA")
+                yaml.set("grave.container.vanilla-material", ((ref as? BlockRef.Vanilla)?.material ?: Material.BARREL).name)
+                yaml.set("grave.container.custom-block-provider", "")
+                yaml.set("grave.container.custom-block-id", "")
+            }
+        }
+        yaml.save(file)
+        inv.config = com.inmc.invkeeper.config.PluginConfig.from(yaml)
+    }
 
     // --- 조회 --------------------------------------------------------------------
 
