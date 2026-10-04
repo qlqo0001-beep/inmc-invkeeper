@@ -61,6 +61,7 @@ class ItemListMenu(
             refresh()
         }
         set(SLOT_INFO, infoButton(shown.size))
+        set(SLOT_WORLDS, worldButton()) { WorldRuleMenu(inv, viewer).open(viewer) }
         set(SLOT_GRAVE_BLOCK, graveBlockButton()) { event ->
             if (event.isRightClick) {
                 inv.graves.setBlock(null)
@@ -78,6 +79,18 @@ class ItemListMenu(
         }
         set(Paging.SLOT_CLOSE, Icon.close()) { viewer.closeInventory() }
     }
+
+    /** 월드별 무덤 on/off + 드랍율 — config.yml 손편집 없이. */
+    private fun worldButton(): ItemStack = Icon.of(
+        Material.GRASS_BLOCK,
+        "<yellow>월드 규칙</yellow>",
+        listOf(
+            "<gray>월드별 무덤 on/off 와 인벤·경험치 드랍율을</gray>",
+            "<gray>여기서 바꿉니다.</gray>",
+            "",
+            "<yellow>▶ 클릭: 열기</yellow>",
+        ),
+    )
 
     /** 무덤 블록 — 지금 것의 모양으로. 커스텀 블록(커스텀아이템)도 된다. */
     private fun graveBlockButton(): ItemStack {
@@ -216,5 +229,8 @@ class ItemListMenu(
         const val SLOT_FILTER = 48
         const val SLOT_INFO = 49
         const val SLOT_GRAVE_BLOCK = 50
+
+        /** 월드 규칙 — 51번. 무덤 블록(50) 바로 오른쪽이라 눈에 띄는 자리다. 52번은 비워 둔다. */
+        const val SLOT_WORLDS = 51
     }
 }
