@@ -61,6 +61,8 @@ class ItemListMenu(
             refresh()
         }
         set(SLOT_INFO, infoButton(shown.size))
+        set(SLOT_WORLDS, worldButton()) { WorldRuleMenu(inv, viewer).open(viewer) }
+        set(SLOT_HUB, hubButton()) { viewer.performCommand("메뉴 어드민") }
         set(SLOT_GRAVE_BLOCK, graveBlockButton()) { event ->
             if (event.isRightClick) {
                 inv.graves.setBlock(null)
@@ -78,6 +80,25 @@ class ItemListMenu(
         }
         set(Paging.SLOT_CLOSE, Icon.close()) { viewer.closeInventory() }
     }
+
+    /** 월드별 무덤 on/off + 드랍율 — config.yml 손편집 없이. */
+    private fun worldButton(): ItemStack = Icon.of(
+        Material.GRASS_BLOCK,
+        "<yellow>월드 규칙</yellow>",
+        listOf(
+            "<gray>월드별 무덤 on/off 와 인벤·경험치 드랍율을</gray>",
+            "<gray>여기서 바꿉니다.</gray>",
+            "",
+            "<yellow>▶ 클릭: 열기</yellow>",
+        ),
+    )
+
+    /** 어드민 메뉴 허브로 — 52번 예약 빈자리(주석 참조). */
+    private fun hubButton(): ItemStack = Icon.of(
+        Material.COMPASS,
+        "<gold>어드민 메뉴로</gold>",
+        listOf("<gray>각 플러그인 설정 허브로 돌아갑니다.</gray>"),
+    )
 
     /** 무덤 블록 — 지금 것의 모양으로. 커스텀 블록(커스텀아이템)도 된다. */
     private fun graveBlockButton(): ItemStack {
@@ -216,5 +237,11 @@ class ItemListMenu(
         const val SLOT_FILTER = 48
         const val SLOT_INFO = 49
         const val SLOT_GRAVE_BLOCK = 50
+
+        /** 월드 규칙 — 51번. 무덤 블록(50) 바로 오른쪽이라 눈에 띄는 자리다. 52번은 비워 둔다. */
+        const val SLOT_WORLDS = 51
+
+        /** 어드민 메뉴 허브 — 52번 예약 빈자리. */
+        const val SLOT_HUB = 52
     }
 }
