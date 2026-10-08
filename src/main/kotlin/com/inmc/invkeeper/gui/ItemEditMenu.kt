@@ -35,7 +35,7 @@ class ItemEditMenu(
         fillEmpty(Icon.EDGE)
 
         set(SLOT_ICON, previewIcon())
-        set(SLOT_KIND, kindIcon()) { event -> cycleKind(event) }
+        set(SLOT_KIND, kindIcon()) { pickKind() }
         set(SLOT_STORAGE, storageIcon()) { toggleStorage() }
 
         drawAutoBind()
@@ -95,14 +95,20 @@ class ItemEditMenu(
 
     private fun kindIcon(): ItemStack = Icon.of(
         Material.NAME_TAG,
-        "<yellow>종류</yellow>",
-        Editors.optionList(ItemKind.entries, definition.kind) { it.label } +
-            listOf("", "<yellow>▶ 클릭하여 변경</yellow>"),
+        "<yellow>종류: <white>" + definition.kind.label + "</white></yellow>",
+        Editors.pickHint,
     )
 
-    private fun cycleKind(event: InventoryClickEvent) {
-        val next = Editors.cycle(event, ItemKind.entries, definition.kind)
-        replace(copy(kind = next))
+    /** 종류 7개 — 좌/우클릭 순환 대신 고르는 화면으로(2026-10-08). */
+    private fun pickKind() {
+        kr.inmc.core.gui.PickMenu(
+            inv, viewer, "종류 고르기", ItemKind.entries.toList(),
+            icon = { Icon.of(Material.NAME_TAG, (if (it == definition.kind) "<green>▶ " else "<yellow>") + it.label + "</yellow>") },
+            back = { open(viewer) },
+        ) { picked ->
+            replace(copy(kind = picked))
+            open(viewer)
+        }.show()
     }
 
     private fun storageIcon(): ItemStack {

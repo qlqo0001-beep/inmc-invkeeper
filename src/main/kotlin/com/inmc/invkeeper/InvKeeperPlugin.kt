@@ -84,6 +84,7 @@ class InvKeeperPlugin : JavaPlugin() {
         manager.registerEvents(SoulbindToolListener(inv), this)
         manager.registerEvents(SoulbindMoveListener(inv), this)
         manager.registerEvents(SoulbindUseListener(inv), this)
+        manager.registerEvents(com.inmc.invkeeper.listener.SoulbindDropListener(inv), this)
         manager.registerEvents(ProtectionUseListener(inv), this)
         manager.registerEvents(ChatInputListener(inv), this)
         manager.registerEvents(kr.inmc.core.listener.MenuListener(inv), this)

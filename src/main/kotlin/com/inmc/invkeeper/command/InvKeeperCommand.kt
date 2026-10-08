@@ -65,6 +65,14 @@ class InvKeeperCommand(private val inv: InvKeeper) {
                 Commands.literal("상태").requires { it.sender.hasPermission(STATUS) }
                     .executes { ctx -> status(ctx.source.sender) },
             )
+            .then(
+                // 서버 안 자동 검증(2026-10-08) — 각인(판정·꾸러미·우회·만료)·무덤·보호·아이템 등록.
+                Commands.literal("검증").requires(::isAdmin).executes { ctx ->
+                    val player = ctx.source.sender as? Player ?: return@executes notPlayer(ctx.source.sender)
+                    com.inmc.invkeeper.verify.Verifier(inv).run(player)
+                    1
+                },
+            )
 
             .then(
                 Commands.literal("리로드").requires(::isAdmin)
@@ -139,6 +147,19 @@ class InvKeeperCommand(private val inv: InvKeeper) {
                     .then(
                         Commands.literal("해제").requires(::isAdmin)
                             .executes { ctx -> unbind(ctx.source.sender) },
+                    )
+                    // 관리자 시험 도구(2026-10-08) — 혼자서 "남의 각인" 규칙(줍기·옮기기·꾸러미·사용 막기)을 겪어 본다.
+                    .then(
+                        Commands.literal("시험").requires(::isAdmin).then(
+                            Commands.argument("주인", StringArgumentType.word())
+                                .suggests { _, builder -> Bukkit.getOnlinePlayers().forEach { builder.suggest(it.name) }; builder.buildFuture() }
+                                .executes { ctx -> testBind(ctx.source.sender, StringArgumentType.getString(ctx, "주인")) },
+                        ),
+                    )
+                    .then(
+                        Commands.literal("우회").requires(::isAdmin)
+                            .then(Commands.literal("끄기").executes { ctx -> bypassTest(ctx.source.sender, off = true) })
+                            .then(Commands.literal("켜기").executes { ctx -> bypassTest(ctx.source.sender, off = false) }),
                     ),
             )
 
@@ -151,6 +172,10 @@ class InvKeeperCommand(private val inv: InvKeeper) {
                                 val sender = ctx.source.sender
                                 if (sender is Player) GraveListMenu(inv, sender).open(sender).let { 1 } else graveList(sender)
                             },
+                    )
+                    .then(
+                        // 관리자 시험 도구(2026-10-08) — 죽지 않고 지금 가방의 **사본**으로 무덤을 만든다(가방은 그대로).
+                        Commands.literal("시험").executes { ctx -> testGrave(ctx.source.sender) },
                     )
                     .then(
                         // 1세대 `/invkeeper grave reload` — 무덤 설정 다시 읽기 + 홀로그램 다시 띄우기.
@@ -335,6 +360,65 @@ class InvKeeperCommand(private val inv: InvKeeper) {
         return 1
     }
 
+    /** 손에 든 아이템을 [ownerName] 의 각인으로(1시간) — 시험용. 오프라인은 서버에 들어온 적 있는 이름만. */
+    /** `/인벤키퍼 무덤 시험` — 지금 가방(갑옷·왼손 뺀 36칸)의 사본으로 무덤을 만든다. 생성·회수·도굴·만료를 죽지 않고 본다. */
+    private fun testGrave(sender: CommandSender): Int {
+        val player = sender as? Player ?: return notPlayer(sender)
+        val contents = com.inmc.invkeeper.grave.GraveContents()
+        for (slot in 0 until minOf(com.inmc.invkeeper.grave.GraveContents.SIZE, player.inventory.storageContents.size)) {
+            contents.slots[slot] = player.inventory.storageContents[slot]?.takeIf { !it.type.isAir }?.clone()
+        }
+        if (contents.isEmpty()) {
+            sender.sendMessage(Text.render("<red>가방이 비어 있습니다 — 아이템을 몇 개 들고 다시 해 보세요.</red>"))
+            return 1
+        }
+        val settings = inv.config.grave
+        if (!settings.enabled) {
+            sender.sendMessage(Text.render("<red>무덤 기능이 꺼져 있습니다(grave.enabled).</red>"))
+            return 1
+        }
+        if (settings.isWorldDisabled(player.world.name)) {
+            sender.sendMessage(Text.render("<red>'${player.world.name}' 은 무덤을 만들지 않는 월드입니다(grave.disabled-worlds) — 다른 월드에서 해 보세요.</red>"))
+            return 1
+        }
+        val grave = inv.graves.create(player, contents, System.currentTimeMillis())
+        if (grave == null) {
+            sender.sendMessage(Text.render("<red>무덤을 놓을 자리를 찾지 못했습니다 — 트인 곳에서 다시 해 보세요.</red>"))
+            return 1
+        }
+        sender.sendMessage(Text.render("<green>가방 사본(${contents.countSlots()}칸)으로 시험 무덤을 만들었습니다. 가방은 그대로입니다 — 열어서 회수·도굴·만료를 보세요.</green>"))
+        return 1
+    }
+
+    private fun testBind(sender: CommandSender, ownerName: String): Int {
+        val player = sender as? Player ?: return notPlayer(sender)
+        val hand = player.inventory.itemInMainHand
+        if (hand.type.isAir) {
+            inv.messages.send(sender, "hand-empty")
+            return 1
+        }
+        val owner = Bukkit.getPlayerExact(ownerName) ?: Bukkit.getOfflinePlayerIfCached(ownerName)
+        if (owner == null) {
+            sender.sendMessage(Text.render("<red>'$ownerName' 을(를) 찾지 못했습니다 — 서버에 들어온 적 있는 이름이어야 합니다.</red>"))
+            return 1
+        }
+        inv.soulbinds.apply(hand, owner.uniqueId, com.inmc.invkeeper.item.BindStrength(com.inmc.invkeeper.item.BindMode.TIME, TEST_BIND_MINUTES, 0))
+        player.inventory.setItemInMainHand(hand)
+        sender.sendMessage(Text.render("<green>손에 든 아이템을 <white>${owner.name ?: ownerName}</white> 의 각인으로 만들었습니다(${TEST_BIND_MINUTES}분). " +
+            "<gray>남의 각인을 겪어 보려면 /인벤키퍼 각인 우회 끄기</gray></green>"))
+        return 1
+    }
+
+    private fun bypassTest(sender: CommandSender, off: Boolean): Int {
+        val player = sender as? Player ?: return notPlayer(sender)
+        inv.guard.setBypassTest(player, off)
+        sender.sendMessage(Text.render(
+            if (off) "<yellow>각인 우회를 껐습니다 — 이제 남의 각인 아이템이 막힙니다(나가면 다시 켜짐). 되돌리기: /인벤키퍼 각인 우회 켜기</yellow>"
+            else "<green>각인 우회를 다시 켰습니다.</green>",
+        ))
+        return 1
+    }
+
     private fun unbind(sender: CommandSender): Int {
         val player = sender as? Player ?: return notPlayer(sender)
         val hand = player.inventory.itemInMainHand
@@ -411,5 +495,8 @@ class InvKeeperCommand(private val inv: InvKeeper) {
         const val GRAVE_ADMIN = "invkeeper.grave.admin"
         const val STATUS = "invkeeper.status"
         const val GRAVE_LIST_LIMIT = 20
+
+        /** 시험 각인의 길이(분) — 시험용 아이템이 영영 남의 것으로 남지 않게. */
+        const val TEST_BIND_MINUTES = 60
     }
 }
