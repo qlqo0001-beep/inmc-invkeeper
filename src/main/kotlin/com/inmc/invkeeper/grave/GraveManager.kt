@@ -73,17 +73,23 @@ class GraveManager(private val inv: InvKeeper) {
         return grave
     }
 
-    /** 개수 제한을 넘겼으면 가장 오래된 것부터 치운다. */
+    /**
+     * 개수 제한을 넘겼으면 가장 오래된 것부터 치운다. 모드마다 따로면(core `Realms` — 2026-10-15, 기능 `inmc-invkeeper.graves`) **이 모드의 월드에 있는 무덤만** 센다 —
+     * 다른 모드에서 죽어 남긴 무덤이 이쪽 한도를 먹거나 이쪽 죽음으로 치워지지 않게.
+     */
     private fun enforceLimit(player: Player, now: Long) {
         val max = inv.config.grave.maxPerPlayer
         if (max <= 0) return
-        val mine = store.of(player.uniqueId)
+        val mode = kr.inmc.core.integration.Realms.scope(GRAVES_FEATURE, player)
+        val mine = store.of(player.uniqueId).filter { mode.isEmpty() || modeOfWorld(it.worldName) == mode }
         if (mine.size < max) return
 
         inv.messages.send(player, "grave-max-reached", Ph.of().max(max))
         // size - max + 1 개를 치워야 새 것을 넣을 자리가 난다.
         for (grave in mine.take(mine.size - max + 1)) dispose(grave, now)
     }
+
+    private fun modeOfWorld(name: String): String? = org.bukkit.Bukkit.getWorld(name)?.let(kr.inmc.core.integration.Realms::ofWorld)
 
     /**
      * 무덤을 놓을 자리.
@@ -351,14 +357,17 @@ class GraveManager(private val inv: InvKeeper) {
         }
     }
 
-    private companion object {
+    companion object {
+        /** core `Realms` 기능 열쇠 — 무덤 개수 한도를 모드마다 따로 셀지. */
+        const val GRAVES_FEATURE = "inmc-invkeeper.graves"
+
         /** 죽은 지점에서 위로 이만큼까지 빈 자리를 찾아본다. */
-        const val SEARCH_HEIGHT = 16
+        private const val SEARCH_HEIGHT = 16
 
         /**
          * 홀로그램에 무덤 id 를 적어 두는 PDC 키. 1세대(`NamespacedKey(plugin, "grave_hologram")`)와 같은
          * 키라, 1세대가 남긴 홀로그램도 같은 무덤 것으로 찾아 정리한다.
          */
-        val HOLOGRAM_KEY = NamespacedKey("invkeeper", "grave_hologram")
+        private val HOLOGRAM_KEY = NamespacedKey("invkeeper", "grave_hologram")
     }
 }

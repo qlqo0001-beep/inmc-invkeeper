@@ -35,6 +35,15 @@ class InvKeeperPlugin : JavaPlugin() {
 
         registerListeners()
         InvKeeperCommand(inv).register(this)
+        // 모드(inmc-worlds)의 기능 토글에 올린다(core Realms, 2026-10-15).
+        kr.inmc.core.integration.Realms.register(kr.inmc.core.integration.Realms.Feature(
+            com.inmc.invkeeper.grave.GraveManager.GRAVES_FEATURE, REALM_GROUP, "무덤 개수 한도", org.bukkit.Material.SKELETON_SKULL,
+            listOf("한 사람의 무덤 수를 모드마다 따로 센다"),
+        ))
+        kr.inmc.core.integration.Realms.register(kr.inmc.core.integration.Realms.Feature(
+            com.inmc.invkeeper.protection.ProtectionService.TIMED_FEATURE, REALM_GROUP, "시간형 보호권", org.bukkit.Material.CLOCK,
+            listOf("쓴 모드에서만 켜져 있다"),
+        ))
         // 커스텀아이템에 역할을 내놓는다. 커스텀아이템이 먼저 켜졌든 나중에 켜지든 알림이 다시 읽게 한다.
         for (role in com.inmc.invkeeper.item.InvKeeperRoles.roles()) kr.inmc.core.integration.ItemRoles.register(role)
         kr.inmc.core.integration.ItemRoles.listen(com.inmc.invkeeper.item.InvKeeperRoles.OWNER) { role ->
@@ -65,6 +74,7 @@ class InvKeeperPlugin : JavaPlugin() {
 
     override fun onDisable() {
         if (!::inv.isInitialized) return
+        kr.inmc.core.integration.Realms.unregisterAll(REALM_GROUP)
         metrics?.stop()
         metrics = null
         ticker.stop()
@@ -132,5 +142,10 @@ class InvKeeperPlugin : JavaPlugin() {
             if (holder !is kr.inmc.core.gui.Menu || holder.owner !== inv) continue
             player.closeInventory()
         }
+    }
+
+    private companion object {
+        /** core `Realms` 기능 목록의 묶음 이름. */
+        const val REALM_GROUP = "인벤키퍼"
     }
 }

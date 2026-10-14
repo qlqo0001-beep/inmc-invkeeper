@@ -40,7 +40,7 @@ class ProtectionService(private val inv: InvKeeper) {
         timedRemainingMillis(player, now) > 0L
 
     fun timedRemainingMillis(player: Player, now: Long = System.currentTimeMillis()): Long {
-        val expiry = player.persistentDataContainer.get(EXPIRY, PersistentDataType.LONG) ?: return 0L
+        val expiry = player.persistentDataContainer.get(expiryKey(player), PersistentDataType.LONG) ?: return 0L
         return (expiry - now).coerceAtLeast(0L)
     }
 
@@ -49,11 +49,21 @@ class ProtectionService(private val inv: InvKeeper) {
 
     fun activateTimed(player: Player, durationSeconds: Long, now: Long = System.currentTimeMillis()) {
         val expiry = now + durationSeconds.coerceAtLeast(0L) * 1000L
-        player.persistentDataContainer.set(EXPIRY, PersistentDataType.LONG, expiry)
+        player.persistentDataContainer.set(expiryKey(player), PersistentDataType.LONG, expiry)
     }
 
     fun clearTimed(player: Player) {
-        player.persistentDataContainer.remove(EXPIRY)
+        player.persistentDataContainer.remove(expiryKey(player))
+    }
+
+    /**
+     * 시간형 보호의 PDC 열쇠 — 모드마다 따로면 `timed_protection_expiry_<모드>`(core `Realms`, 2026-10-15 — 기능 `inmc-invkeeper.timed-protection`).
+     * 산 모드에서만 켜져 있다(다른 모드에서 보호권 값을 누리지 않게). 같이 쓰기·모드 없음이면 옛 열쇠 그대로. 모드 id 는 열쇠 글자 규칙에 맞는다.
+     */
+    private fun expiryKey(player: Player): NamespacedKey {
+        val scope = kr.inmc.core.integration.Realms.scope(TIMED_FEATURE, player)
+        @Suppress("DEPRECATION")
+        return if (scope.isEmpty()) EXPIRY else NamespacedKey("invkeeper", "timed_protection_expiry_$scope")
     }
 
     // --- 사망 경로 -----------------------------------------------------------------
@@ -100,9 +110,12 @@ class ProtectionService(private val inv: InvKeeper) {
         else setItem(slot, stack.clone().also { it.amount = remaining })
     }
 
-    private companion object {
+    companion object {
+
+        /** core `Realms` 기능 열쇠 — 시간형 보호를 모드마다 따로 둘지. */
+        const val TIMED_FEATURE = "inmc-invkeeper.timed-protection"
 
         @Suppress("DEPRECATION")
-        val EXPIRY = NamespacedKey("invkeeper", "timed_protection_expiry")
+        private val EXPIRY = NamespacedKey("invkeeper", "timed_protection_expiry")
     }
 }
