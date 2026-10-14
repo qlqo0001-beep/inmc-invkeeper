@@ -80,7 +80,7 @@ class Messages(values: Map<String, String>) : MessageCatalog<Ph>(values, DEFAULT
             "hand-empty" to "<red>손에 아이템을 들고 있어야 합니다.</red>",
 
             // --- 아이템 등록 (신규) ---------------------------------------------------
-            "registered" to "<green>손에 든 아이템을 '{item}' 으로 등록했습니다.</green>",
+            "registered" to "<green>올린 아이템을 '{item}' 으로 등록했습니다.</green>",
             "unregistered" to "<green>'{item}' 등록을 해제했습니다.</green>",
 
             // --- 자동각인 (신규) ------------------------------------------------------

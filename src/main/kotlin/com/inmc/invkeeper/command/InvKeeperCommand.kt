@@ -270,14 +270,15 @@ class InvKeeperCommand(private val inv: InvKeeper) {
             sender.sendMessage(Text.render("<red>이름은 소문자 영문·숫자·한글·_- 만 쓸 수 있습니다 (최대 32자).</red>"))
             return 1
         }
-        val hand = player.inventory.itemInMainHand
-        if (hand.type.isAir) {
-            inv.messages.send(sender, "hand-empty")
-            return 1
-        }
-
-        inv.items.register(key, kind, hand)
-        inv.messages.send(sender, "registered", Ph.of().item(key))
+        // 손에 든 것 대신 올리는 화면으로(2026-10-14) — 올린 것의 사본을 등록하고 닫는다.
+        kr.inmc.core.gui.ItemInputMenu(
+            inv, player, "'$key' 로 등록할 아이템 올리기",
+            hint = listOf("<gray>종류: <white>${kind.label}</white></gray>"),
+        ) { stack ->
+            inv.items.register(key, kind, stack)
+            inv.messages.send(sender, "registered", Ph.of().item(key))
+            player.closeInventory()
+        }.show()
         return 1
     }
 

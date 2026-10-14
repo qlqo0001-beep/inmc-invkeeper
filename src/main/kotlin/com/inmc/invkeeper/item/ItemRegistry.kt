@@ -23,7 +23,7 @@ import org.bukkit.inventory.ItemStack
 class ItemRegistry(private val inv: InvKeeper) : YamlFileStore(
     io = inv.io,
     path = listOf("items.yml"),
-    header = "등록된 아이템. /인벤키퍼 등록 으로 손에 든 것을 그대로 넣을 수 있습니다.",
+    header = "등록된 아이템. /인벤키퍼 등록 으로 올린 아이템을 그대로 넣을 수 있습니다.",
     what = "아이템",
 ) {
 

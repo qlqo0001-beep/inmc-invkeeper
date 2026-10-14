@@ -16,7 +16,7 @@ import org.bukkit.inventory.ItemStack
  * 등록된 아이템 목록. 관리 화면의 첫 장이다.
  *
  * 자동각인을 여기서 켜고 끈다 — `items.yml` 을 손으로 고치지 않아도 되게 하는 것이 이 화면의
- * 목적이다. 새 아이템은 **손에 들고 아래 버튼을 누르면** 그대로 등록된다.
+ * 목적이다. 새 아이템은 **아래 버튼을 눌러 아이템을 올리면**(core `ItemInputMenu`) 그대로 등록된다.
  */
 class ItemListMenu(
     inv: InvKeeper,
@@ -38,7 +38,7 @@ class ItemListMenu(
             }
         }
 
-        set(Paging.SLOT_BACK, registerButton()) { promptRegister() }
+        set(Paging.SLOT_BACK, registerButton()) { openRegister() }
 
         if (page > 0) {
             set(Paging.SLOT_PREV, Icon.prevPage()) {
@@ -69,14 +69,21 @@ class ItemListMenu(
                 refresh()
                 return@set
             }
-            val hand = viewer.inventory.itemInMainHand
-            val ref = if (hand.type.isAir) null else kr.inmc.core.item.BlockRef.fromItem(hand, inv.customItems)
-            if (ref == null) {
-                viewer.sendMessage(Text.render("<red>놓을 수 있는 블록을 손에 든 뒤 누르세요.</red>"))
-                return@set
-            }
-            inv.graves.setBlock(ref)
-            refresh()
+            // 손에 든 블록 대신 올린 블록으로(2026-10-14). 놓을 수 없는 것을 올리면 그 화면에 남아 다시 고른다.
+            kr.inmc.core.gui.ItemInputMenu(
+                inv, viewer, "무덤 블록 올리기",
+                hint = listOf("<gray>놓을 수 있는 블록 — 커스텀 블록(커스텀아이템)도 됩니다.</gray>"),
+                submitLabel = "무덤 블록으로",
+                back = { ItemListMenu(inv, viewer, page, filter).open(viewer) },
+            ) { stack ->
+                val ref = kr.inmc.core.item.BlockRef.fromItem(stack, inv.customItems)
+                if (ref == null) {
+                    viewer.sendMessage(Text.render("<red>놓을 수 있는 블록을 올리세요.</red>"))
+                } else {
+                    inv.graves.setBlock(ref)
+                    ItemListMenu(inv, viewer, page, filter).open(viewer)
+                }
+            }.show()
         }
         set(Paging.SLOT_CLOSE, Icon.close()) { viewer.closeInventory() }
     }
@@ -112,7 +119,7 @@ class ItemListMenu(
             "<dark_gray>죽으면 이 블록이 무덤이 됩니다. 커스텀 블록(커스텀아이템)도 됩니다.</dark_gray>",
             "<dark_gray>이미 있는 무덤은 놓인 블록 그대로 — 사라질 때 그 블록을 치웁니다.</dark_gray>",
             "",
-            "<yellow>▶ 좌클릭: 손에 든 블록으로</yellow>",
+            "<yellow>▶ 좌클릭: 블록을 올려 바꾸기</yellow>",
             "<red>▶ 우클릭: 기본값(통)으로</red>",
         ))
     }
@@ -155,24 +162,24 @@ class ItemListMenu(
         }
     }
 
-    private fun registerButton(): ItemStack {
-        val hand = viewer.inventory.itemInMainHand
-        if (hand.type.isAir) {
-            return Icon.of(
-                Material.BARRIER,
-                "<red>등록하려면 아이템을 손에 드세요</red>",
-                listOf("<gray>등록할 아이템을 주 손에 들고</gray>", "<gray>이 버튼을 누르세요.</gray>"),
-            )
-        }
-        return Icon.of(
-            Material.WRITABLE_BOOK,
-            "<green>손에 든 아이템 등록</green>",
-            listOf(
-                "<gray>대상: <white>${kr.inmc.core.item.StoredItem.plainName(hand) ?: hand.type.name}</white></gray>",
-                "",
-                "<yellow>▶ 클릭하면 이름을 물어봅니다</yellow>",
-            ),
-        )
+    private fun registerButton(): ItemStack = Icon.of(
+        Material.WRITABLE_BOOK,
+        "<green>아이템 등록</green>",
+        listOf(
+            "<gray>등록할 아이템을 올리고 [등록] 을 누르면</gray>",
+            "<gray>이름을 물어봅니다. 가방의 아이템은 그대로입니다.</gray>",
+            "",
+            "<yellow>▶ 클릭: 아이템 올리기</yellow>",
+        ),
+    )
+
+    /** 아이템을 올리는 화면(core `ItemInputMenu`) — 손에 든 것을 읽던 자리(2026-10-14). */
+    private fun openRegister() {
+        kr.inmc.core.gui.ItemInputMenu(
+            inv, viewer, "등록할 아이템 올리기",
+            hint = listOf("<gray>등록할 아이템 — MMOItems·ItemsAdder·바닐라·수제 다 됩니다.</gray>"),
+            back = { ItemListMenu(inv, viewer, page, filter).open(viewer) },
+        ) { stack -> promptRegister(stack) }.show()
     }
 
     private fun infoButton(total: Int): ItemStack = Icon.of(
@@ -191,10 +198,7 @@ class ItemListMenu(
     )
 
     /** 이름을 물어보고 등록한다. 이름은 설정 파일의 항목 이름이 되므로 규칙을 검사한다. */
-    private fun promptRegister() {
-        val hand = viewer.inventory.itemInMainHand.clone()
-        if (hand.type.isAir) return
-
+    private fun promptRegister(stack: ItemStack) {
         Editors.promptText(
             inv.prompts,
             viewer,
@@ -210,7 +214,7 @@ class ItemListMenu(
                 viewer.sendMessage(Text.render("<red>이름 규칙에 맞지 않습니다: $raw</red>"))
                 return@promptText
             }
-            val definition = inv.items.register(key, ItemKind.PLAIN, hand)
+            val definition = inv.items.register(key, ItemKind.PLAIN, stack)
             viewer.sendMessage(Text.render("<green>'$key' 로 등록했습니다. 이어서 설정을 여세요.</green>"))
             ItemEditMenu(inv, viewer, definition).open(viewer)
         }

@@ -153,7 +153,7 @@ class GraveManager(private val inv: InvKeeper) {
     }
 
     /**
-     * 무덤 블록을 바꾼다(관리 화면 — urb 의 상자 블록처럼 손에 든 블록으로, 테섭 요청 2026-10-02). `config.yml` 의 `grave.container` 에
+     * 무덤 블록을 바꾼다(관리 화면 — 올린 블록으로, 테섭 요청 2026-10-02 · 2026-10-14 부터 손에 든 것 대신 올리기). `config.yml` 의 `grave.container` 에
      * 적고(주석은 남는다) 그 자리에서 반영한다. null = 기본값(통). 이미 있는 무덤은 놓인 블록 그대로다.
      */
     fun setBlock(ref: BlockRef?) {
