@@ -9,12 +9,17 @@ import com.inmc.invkeeper.soulbind.AutoBindService
 import com.inmc.invkeeper.soulbind.SoulbindType
 import com.inmc.invkeeper.util.Ph
 import kr.inmc.core.integration.ExtraInventory
+import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
+import org.bukkit.event.entity.EntityDamageByEntityEvent
 import org.bukkit.event.entity.PlayerDeathEvent
+import org.bukkit.event.player.PlayerRespawnEvent
 import org.bukkit.inventory.ItemStack
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * 사망 처리. 이 플러그인이 존재하는 이유다.
@@ -34,16 +39,41 @@ import org.bukkit.inventory.ItemStack
  */
 class PlayerDeathListener(private val inv: InvKeeper) : Listener {
 
+    /** 마지막 사망 처리 틱·시각. 같은 틱에 또 오면 같은 죽음의 중복 발화다. */
+    private data class DeathMark(val ms: Long, val tick: Int)
+
+    private val lastDeaths = ConcurrentHashMap<UUID, DeathMark>()
+    private val lastRespawnMs = ConcurrentHashMap<UUID, Long>()
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    fun onRespawn(event: PlayerRespawnEvent) {
+        lastRespawnMs[event.player.uniqueId] = System.currentTimeMillis()
+    }
+
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     fun onDeath(event: PlayerDeathEvent) {
         val player = event.entity
         val now = System.currentTimeMillis()
+        val tick = Bukkit.getCurrentTick()
+
+        val prev = logDeathDiag(event, player, now, tick)
 
         // 바닐라 드랍을 끈다. 이 셋을 빠뜨리면 우리가 계산한 몫에 더해 바닐라가 한 번 더 흘린다.
         event.keepInventory = true
         event.keepLevel = true
         event.drops.clear()
         event.droppedExp = 0
+
+        // 동일틱 중복 사망은 무효. 같은 틱에 리스폰 없이 또 오면 같은 죽음이다 —
+        // 정상 플레이라면 같은 틱에 두 번 죽을 수 없다. 무덤도, 손실도, 보호권·각인 소모도,
+        // 사망 방송도 없이 넘긴다. 바닐라 드랍 끄기는 위에서 한 것으로 끝낸다.
+        if (isSameTickDeath(player, tick, prev)) {
+            event.deathMessage(null)
+            if (inv.config.deathDebugLog) {
+                inv.logger.info("[사망진단] ${player.name} 동일틱 중복 사망 무효 (tick=$tick)")
+            }
+            return
+        }
 
         when (inv.protection.checkAndConsume(player, now)) {
             ProtectionResult.TIMED -> {
@@ -95,7 +125,15 @@ class PlayerDeathListener(private val inv: InvKeeper) : Listener {
             if (index < GraveContents.SIZE) contents.slots[index] = stack else overflow += stack
         }
 
-        if (inv.graves.create(player, contents, now) != null) {
+        val grave = inv.graves.create(player, contents, now)
+        if (inv.config.deathDebugLog) {
+            inv.logger.info(
+                "[사망진단] ${player.name} 무덤=${grave?.id} " +
+                    "at=${grave?.worldName},${grave?.x},${grave?.y},${grave?.z} " +
+                    "잃은칸=${lostSlots.size}/${candidates.size} 넘침=${overflow.size}",
+            )
+        }
+        if (grave != null) {
             for (stack in overflow) player.world.dropItemNaturally(player.location, stack)
             return
         }
@@ -106,6 +144,54 @@ class PlayerDeathListener(private val inv: InvKeeper) : Listener {
                 it.experience = lostExp
             }
         }
+    }
+
+    /**
+     * 사망 진단 한 줄. `death-debug-log` 이 켜져 있을 때만 콘솔에 남긴다.
+     *
+     * 보는 값: 서버 틱·직전 사망 처리와 간격·리스폰 이후 경과·진입 시점 사망 여부·
+     * 이벤트 객체 해시(같은 객체가 두 번 돌았는지)·마지막 피해 원인.
+     * 리스폰 없이 같은 틱에 또 오면 같은 죽음의 중복 발화다.
+     *
+     * @return 직전 사망 기록. 없으면 null. 동일틱 판정이 쓴다.
+     */
+    private fun logDeathDiag(event: PlayerDeathEvent, player: Player, now: Long, tick: Int): DeathMark? {
+        val id = player.uniqueId
+        val prev = lastDeaths[id]
+        val gapMs = prev?.let { now - it.ms } ?: -1L
+        val respawnAgoMs = lastRespawnMs[id]?.let { now - it } ?: -1L
+        lastDeaths[id] = DeathMark(now, tick)
+        if (!inv.config.deathDebugLog) return prev
+        inv.logger.info(
+            "[사망진단] ${player.name} tick=$tick " +
+                "gapMs=$gapMs respawnAgoMs=$respawnAgoMs isDead=${player.isDead} " +
+                "event=${System.identityHashCode(event)} cause=[${describeCause(player)}]",
+        )
+        return prev
+    }
+
+    /**
+     * 같은 틱의 중복 발화인지.
+     *
+     * 틱이 같고, 그 사이 리스폰이 없으면 무조건 중복이다. 즉시 리스폰 환경에서 리스폰 기록이
+     * 직전 사망보다 뒤면 진짜 다음 죽음이므로 그대로 처리한다.
+     */
+    private fun isSameTickDeath(player: Player, tick: Int, prev: DeathMark?): Boolean {
+        if (prev == null || tick != prev.tick) return false
+        if ((lastRespawnMs[player.uniqueId] ?: -1L) > prev.ms) return false
+        return true
+    }
+
+    /** 마지막 피해 원인 한 줄. 가해자가 있으면 종류·이름까지. 없으면 `none`. */
+    private fun describeCause(player: Player): String {
+        val cause = player.lastDamageCause ?: return "none"
+        val damager = (cause as? EntityDamageByEntityEvent)?.damager
+        val who = when (damager) {
+            null -> "-"
+            is Player -> "Player(${damager.name})"
+            else -> "${damager.type.name}(${damager.name})"
+        }
+        return "${cause.cause} damager=$who damage=${cause.finalDamage}"
     }
 
     /**

@@ -23,6 +23,8 @@ class PluginConfig(
     val useMessageCooldownSeconds: Long,
     val dropRules: DropRules,
     val grave: GraveSettings,
+    /** 켜면 사망 처리마다 원인·간격을 콘솔에 한 줄 남긴다(이중 사망 진단용, 평소엔 false). */
+    val deathDebugLog: Boolean,
 ) {
 
     companion object {
@@ -39,6 +41,7 @@ class PluginConfig(
                 config.getLong("soulbind-use-message-cooldown-seconds", 3L).coerceAtLeast(0L),
             dropRules = readDropRules(config.getConfigurationSection("rules")),
             grave = GraveSettings.from(config.getConfigurationSection("grave")),
+            deathDebugLog = config.getBoolean("death-debug-log", false),
         )
 
         private fun readDropRules(section: ConfigurationSection?): DropRules {
